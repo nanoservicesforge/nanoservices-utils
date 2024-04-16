@@ -7,7 +7,7 @@ use bitcode::{Decode, Encode};
 use actix_web::{HttpResponse, error::ResponseError, http::StatusCode};
 
 
-#[derive(Error, Debug, Serialize, Deserialize, PartialEq, Decode, Encode)]
+#[derive(Error, Debug, Serialize, Deserialize, PartialEq, Decode, Encode, Clone)]
 pub enum NanoServiceErrorStatus {
     #[error("Requested resource was not found")]
     NotFound,
@@ -29,7 +29,7 @@ pub enum NanoServiceErrorStatus {
 /// # Fields
 /// * `message` - The message of the error.
 /// * `status` - The status of the error.
-#[derive(Serialize, Deserialize, Debug, Error, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Error, PartialEq, Clone)]
 pub struct NanoServiceError {
     pub message: String,
     pub status: NanoServiceErrorStatus
