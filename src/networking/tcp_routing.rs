@@ -27,36 +27,47 @@ macro_rules! create_contract_handler {
         impl $enum_name {
 
             pub async fn send_contract_over_tcp(self, address: &str) -> Result<Self, NanoServiceError> {
-                let serialized = bincode::serialize(&self).map_err(|e| {
+                // let serialized = bincode::serialize(&self).map_err(|e| {
+                //     NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+                // })?;
+                let stream = TcpStream::connect(address).await.map_err(|e| {
                     NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
                 })?;
-                let mut stream = TcpStream::connect(address).await.map_err(|e| {
+                let mut framed = Framed::new(stream, BincodeCodec::<Self>::new());
+                framed.send(self).await.map_err(|e| {
                     NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
                 })?;
-                stream.write_all(&serialized).await.map_err(|e| {
+                let response = match framed.next().await {
+                    Some(response) => response,
+                    None => return Err(NanoServiceError::new("No response from server.".to_string(), NanoServiceErrorStatus::BadRequest))
+                };
+                Ok(response.map_err(|e| {
                     NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-                })?;
-                stream.flush().await.map_err(|e| {
-                    NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-                })?;
+                })?)
+                // stream.write_all(&serialized).await.map_err(|e| {
+                //     NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+                // })?;
+                // stream.flush().await.map_err(|e| {
+                //     NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+                // })?;
 
                 // Read response from the server
-                let mut response = Vec::new();
-                let mut buffer = vec![0; 1024]; // Buffer for reading chunks
-                loop {
-                    let n = stream.read(&mut buffer).await.map_err(|e| {
-                        NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-                    })?;
-                    if n == 0 {
-                        break; // End of stream
-                    }
-                    response.extend_from_slice(&buffer[..n]);
-                }
+                // let mut response = Vec::new();
+                // let mut buffer = vec![0; 1024]; // Buffer for reading chunks
+                // loop {
+                //     let n = stream.read(&mut buffer).await.map_err(|e| {
+                //         NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+                //     })?;
+                //     if n == 0 {
+                //         break; // End of stream
+                //     }
+                //     response.extend_from_slice(&buffer[..n]);
+                // }
 
-                let response: Self = bincode::deserialize(&response).map_err(|e| {
-                    NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-                })?;
-                Ok(response)
+                // let response: Self = bincode::deserialize(&response).map_err(|e| {
+                //     NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+                // })?;
+                // Ok(response)
             }
 
         }
@@ -65,20 +76,49 @@ macro_rules! create_contract_handler {
 }
 
 
+// #[macro_export]
+// macro_rules! register_contract_routes {
+//     ($handler_enum:ident, $fn_name:ident, $( $contract:ident => $handler_fn:path ),*) => {
+//         fn $fn_name(input_bytes: &[u8]) -> Result<Vec<u8>, NanoServiceError> {
+//             let received_msg: Result<$handler_enum, _> = bincode::deserialize(input_bytes);
+
+//             match received_msg {
+//                 Ok(msg) => match msg {
+//                     $(
+//                         $handler_enum::$contract(inner) => {
+//                             let handled: $contract = $contract::handle(inner, $handler_fn)?;
+//                             Ok(bincode::serialize(&handled).map_err(|e| {
+//                                 NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+//                             })?)
+//                         }
+//                     )*
+//                     _ => Err(NanoServiceError::new(
+//                             "Received unknown contract type.".to_string(),
+//                             NanoServiceErrorStatus::BadRequest
+//                         )),
+//                 },
+//                 Err(e) => Err(NanoServiceError::new(
+//                         e.to_string(),
+//                         NanoServiceErrorStatus::BadRequest
+//                     )),
+//             }
+//         }
+//     };
+// }
+
 #[macro_export]
 macro_rules! register_contract_routes {
     ($handler_enum:ident, $fn_name:ident, $( $contract:ident => $handler_fn:path ),*) => {
-        fn $fn_name(input_bytes: &[u8]) -> Result<Vec<u8>, NanoServiceError> {
-            let received_msg: Result<$handler_enum, _> = bincode::deserialize(input_bytes);
-
+        fn $fn_name(received_msg: $handler_enum) -> Result<$handler_enum, NanoServiceError> {
             match received_msg {
-                Ok(msg) => match msg {
+                msg => match msg {
                     $(
                         $handler_enum::$contract(inner) => {
-                            let handled: $contract = $contract::handle(inner, $handler_fn)?;
-                            Ok(bincode::serialize(&handled).map_err(|e| {
-                                NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-                            })?)
+                            // need to add error handling
+                            let handled: $contract = return Ok($handler_enum::$contract($contract::handle(inner, $handler_fn)?));
+                            // Ok(bincode::serialize(&handled).map_err(|e| {
+                            //     NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+                            // })?)
                         }
                     )*
                     _ => Err(NanoServiceError::new(
@@ -86,15 +126,14 @@ macro_rules! register_contract_routes {
                             NanoServiceErrorStatus::BadRequest
                         )),
                 },
-                Err(e) => Err(NanoServiceError::new(
-                        e.to_string(),
-                        NanoServiceErrorStatus::BadRequest
-                    )),
+                // Err(e) => Err(NanoServiceError::new(
+                //         e.to_string(),
+                //         NanoServiceErrorStatus::BadRequest
+                //     )),
             }
         }
     };
 }
-
 
 
 #[cfg(test)]
@@ -107,6 +146,11 @@ mod tests {
     use serde::{Serialize, Deserialize};
     use tokio::net::TcpStream;
     use tokio::io::{AsyncWriteExt, AsyncReadExt};
+    use tokio_util::codec::Framed;
+    use crate::networking::codec::BincodeCodec;
+    use tokio_util::codec::FramedWrite;
+    use futures::sink::SinkExt;
+    use futures::StreamExt;
 
     #[derive(Debug, PartialEq, Deserialize, Serialize)]
     pub struct TestContract {
@@ -190,12 +234,12 @@ mod tests {
             error: None
         });
 
-        let encoded = bincode::serialize(&contract).unwrap();
+        // let encoded = bincode::serialize(&contract).unwrap();
         // assert_eq!(decoded, contract);
 
-        let handled = handle_test_contracts(&encoded).unwrap();
-        let decoded: TestContract = bincode::deserialize(&handled).unwrap();
-        println!("{:?}", decoded.result());
+        let handled = handle_test_contracts(contract).unwrap();
+        // let decoded: TestContract = bincode::deserialize(&handled).unwrap();
+        println!("{:?}", handled.TestContract().unwrap().result());
 
         let false_contract = TestContractHandler::TestContractTwo(TestContractTwo {
             data: 1,
@@ -203,7 +247,7 @@ mod tests {
         });
 
         let encoded = bincode::serialize(&false_contract).unwrap();
-        let handled = handle_test_contracts(&encoded);
+        let handled = handle_test_contracts(false_contract);
         println!("{:?}", handled);
         // assert_eq!(decoded, contract);
     }
