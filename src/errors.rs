@@ -1,12 +1,13 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use std::fmt;
+use bitcode::{Decode, Encode};
 
 #[cfg(feature = "actix")]
 use actix_web::{HttpResponse, error::ResponseError, http::StatusCode};
 
 
-#[derive(Error, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Error, Debug, Serialize, Deserialize, PartialEq, Decode, Encode)]
 pub enum NanoServiceErrorStatus {
     #[error("Requested resource was not found")]
     NotFound,
@@ -28,7 +29,7 @@ pub enum NanoServiceErrorStatus {
 /// # Fields
 /// * `message` - The message of the error.
 /// * `status` - The status of the error.
-#[derive(Serialize, Deserialize, Debug, Error)]
+#[derive(Serialize, Deserialize, Debug, Error, PartialEq)]
 pub struct NanoServiceError {
     pub message: String,
     pub status: NanoServiceErrorStatus
