@@ -1,4 +1,21 @@
-//! Defines extracting config variables.
+//! Defines extracting config variables based on the method to enable testing as well as production use.
+//! A good is API views. Wehn when defining an API view function, we can use the `GetConfigVariable` trait to
+//! to enable config variables from different sources be applied to the API view function by having the following
+//! outline:
+//! 
+//! ```rust
+//! use nanoservices_utils::config::GetConfigVariable;
+//! 
+//! pub async fn api_view<T: GetConfigVariable>() {
+//! }
+//! ```
+//! Anything passed into the `api_view` function will be able to get config variables from the source defined by
+//! the type of the generic parameter `T`. For example, if we want to get config variables from the environment, we
+//! can pass the `EnvConfig` struct as `api_view::<EnvConfig>()`. However, we can implement the `GetConfigVariable`
+//! on a random struct for unit testing and pass that struct into the `api_view` function for testing.
+//! use nanoservices_utils::config::GetConfigVariable;
+//! 
+//! let _ = 
 use std::env;
 use crate::errors::{
     NanoServiceError,
@@ -6,7 +23,7 @@ use crate::errors::{
 };
 
 
-/// Defines the trait for getting config variables
+/// Used for extracting config cariables.
 pub trait GetConfigVariable {
 
     /// Gets the config variable

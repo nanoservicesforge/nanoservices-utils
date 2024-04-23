@@ -75,9 +75,7 @@ macro_rules! register_contract_routes {
 
 #[cfg(test)]
 mod tests {
-
-    use super::*;
-    use crate::networking::contract::Contract;
+    
     use crate::errors::{NanoServiceError, NanoServiceErrorStatus};
     use bitcode::{Decode, Encode};
     use serde::{Serialize, Deserialize};
@@ -94,38 +92,10 @@ mod tests {
         error: Option<NanoServiceError>
     }
 
-    impl Contract<String, String> for TestContract {
-        fn data(&self) -> Result<String, NanoServiceError> {
-            Ok(self.data.clone())
-        }
-
-        fn result(&self) -> Result<String, NanoServiceError> {
-            if let Some(result) = &self.result {
-                Ok(result.clone())
-            }
-            else {
-                Err(NanoServiceError::new(
-                    "No result found.".to_string(),
-                    NanoServiceErrorStatus::NotFound
-                ))
-            }
-        }
-    }
-
     #[derive(Debug, PartialEq, Encode, Decode, Deserialize, Serialize)]
     pub struct TestContractTwo {
         data: i32,
         result: i32
-    }
-
-    impl Contract<i32, i32> for TestContractTwo {
-        fn data(&self) -> Result<i32, NanoServiceError> {
-            Ok(self.data)
-        }
-
-        fn result(&self) -> Result<i32, NanoServiceError> {
-            Ok(self.result)
-        }
     }
 
     create_contract_handler!(
