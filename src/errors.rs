@@ -1,3 +1,6 @@
+//! `NanoServiceError` structs are the way in which nanoservices can pass errors between each other and to the client
+//! if the `ResponseError` trait is implemented for the specific web-framework being used. The `NanoServiceErrorStatus`
+//! enum is used to define the status of the error.
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use std::fmt;
