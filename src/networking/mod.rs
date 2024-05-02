@@ -1,4 +1,9 @@
 pub mod contract;
-pub mod tcp_routing;
-pub mod codec;
-pub mod bit_codec;
+
+pub mod serialization;
+
+#[cfg(feature = "tcp-messaging")]
+pub mod tcp;
+
+#[cfg(feature = "wasm-messaging")]
+pub mod wasm;

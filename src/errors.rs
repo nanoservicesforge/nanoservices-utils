@@ -4,13 +4,12 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use std::fmt;
-use bitcode::{Decode, Encode};
 
 #[cfg(feature = "actix")]
 use actix_web::{HttpResponse, error::ResponseError, http::StatusCode};
 
 
-#[derive(Error, Debug, Serialize, Deserialize, PartialEq, Decode, Encode, Clone)]
+#[derive(Error, Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum NanoServiceErrorStatus {
     #[error("Requested resource was not found")]
     NotFound,
@@ -23,7 +22,9 @@ pub enum NanoServiceErrorStatus {
     #[error("Conflict")]
     Conflict,
     #[error("Unauthorized")]
-    Unauthorized
+    Unauthorized,
+    #[error("Contract not supported")]
+    ContractNotSupported,
 }
 
 
@@ -83,7 +84,9 @@ impl ResponseError for NanoServiceError {
             NanoServiceErrorStatus::Conflict =>
                 StatusCode::CONFLICT,
             NanoServiceErrorStatus::Unauthorized =>
-                StatusCode::UNAUTHORIZED
+                StatusCode::UNAUTHORIZED,
+            NanoServiceErrorStatus::ContractNotSupported =>
+                StatusCode::NOT_IMPLEMENTED
         }
     }
 
