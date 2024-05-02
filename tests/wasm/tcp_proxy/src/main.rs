@@ -11,7 +11,7 @@ use kernel::{
 #[tokio::main]
 async fn main() {
     let proxy = TcpToWasmProxy::new(
-        "127.0.0.0:8001".to_string(),
+        "0.0.0.0:8001".to_string(),
         "../wasi-server/wasi-server.wasm".to_string(),
     );
     let outcome = proxy.start::<ContractHandler>().await.unwrap();
