@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 nanoservices-utils = { path = "../../../", features = ["networking"]}
 serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3.3"
