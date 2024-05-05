@@ -1,5 +1,5 @@
 #[macro_export]
-macro_rules! create_contract_client {
+macro_rules! create_tcp_contract_client {
     ($enum_name:ident) => {
         impl $enum_name {
 
@@ -109,7 +109,7 @@ mod tests {
     }
 
 
-    use crate::create_contract_client;
+    use crate::create_tcp_contract_client;
     use tokio::net::TcpStream;
     use crate::errors::{NanoServiceError, NanoServiceErrorStatus};
     use kernel::{ContractHandler, ContractOne, ContractThree, ContractTwo};
@@ -120,7 +120,7 @@ mod tests {
 
     use tokio::runtime::Builder;
 
-    create_contract_client!(
+    create_tcp_contract_client!(
         ContractHandler
     );
 
