@@ -1,5 +1,6 @@
 #[macro_export]
 macro_rules! create_tcp_contract_client {
+    // TODO => need to create another enum from the existing enum
     ($enum_name:ident) => {
         impl $enum_name {
 
