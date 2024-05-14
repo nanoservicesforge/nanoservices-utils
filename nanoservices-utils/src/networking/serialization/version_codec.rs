@@ -1,6 +1,61 @@
+//! Defines the TCP framing for the bincode serialization format.
+use tokio_util::codec::{Decoder, Encoder};
+use bytes::{BufMut, BytesMut};
+use std::{io, marker::PhantomData};
+use serde::Serialize;
+use revision::Revisioned;
+
+
+/// A codec that serializes and deserializes data using the bincode format for framing.
+pub struct VersionedBincodeCodec<T> {
+    phantom: PhantomData<T>,
+}
+
+impl<T> VersionedBincodeCodec<T> {
+    pub fn new() -> Self {
+        VersionedBincodeCodec { phantom: PhantomData }
+    }
+}
+
+impl<T> Decoder for VersionedBincodeCodec<T> 
+where
+    T: serde::de::DeserializeOwned + Revisioned,
+{
+    type Item = T;
+    type Error = io::Error;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        bincode::deserialize(&src[..]).map(Some).map_err(|e| {
+            eprintln!("Decode failed: {:?}", e);
+            io::Error::new(io::ErrorKind::Other, "deserialize failed")
+        })
+    }
+}
+
+impl<T> Encoder<T> for VersionedBincodeCodec<T> 
+where
+    T: Serialize + Revisioned,
+{
+    type Error = io::Error;
+
+    fn encode(&mut self, item: T, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        let encoded = bincode::serialize(&item).map_err(|e| {
+            eprintln!("Encode failed: {:?}", e);
+            io::Error::new(io::ErrorKind::Other, "serialize failed")
+        })?;
+        dst.reserve(encoded.len());
+        dst.put_slice(&encoded);
+        Ok(())
+    }
+}
+
+
+
 
 #[cfg(test)]
 mod tests {
+
+    use super::*;
 
     use crate::errors::{NanoServiceError, NanoServiceErrorStatus};
     use serde::{Serialize, Deserialize};
@@ -12,6 +67,7 @@ mod tests {
     use tokio_util::codec::Decoder;
     use crate::register_contract_routes;
     use bytes::{BufMut, BytesMut};
+    use crate::networking::tcp::client::send_data_contract_over_tcp;
 
     // The test structure is at revision 3.
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -92,7 +148,7 @@ mod tests {
     async fn run_tcp_server(addr: String) {
         let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
         while let Ok((socket, _)) = listener.accept().await {
-            let mut framed = Framed::new(socket, BincodeCodec::<ContractHandler>::new());
+            let mut framed = Framed::new(socket, VersionedBincodeCodec::<ContractHandler>::new());
 
             while let Some(result) = framed.next().await {
                 match result {
@@ -149,10 +205,7 @@ mod tests {
         );
         // send data to the server
         tokio_runtime.block_on(async {
-            let stream = tokio::net::TcpStream::connect(&addr).await.unwrap();
-            let mut framed = Framed::new(stream, BincodeCodec::<ContractHandler>::new());
-            framed.send(data).await.unwrap();
-            let response = framed.next().await.unwrap().unwrap();
+            let response = send_data_contract_over_tcp(data, &addr).await.unwrap();
             assert_eq!(response, ContractHandler::ContractOne(
                 ContractOne {
                     a: 43,
@@ -186,10 +239,7 @@ mod tests {
         );
         // send data to the server
         tokio_runtime.block_on(async {
-            let stream = tokio::net::TcpStream::connect(&addr).await.unwrap();
-            let mut framed = Framed::new(stream, BincodeCodec::<ContractHandler>::new());
-            framed.send(data).await.unwrap();
-            let response = framed.next().await.unwrap().unwrap();
+            let response = send_data_contract_over_tcp(data, &addr).await.unwrap();
             assert_eq!(response, ContractHandler::ContractTwo(
                 ContractTwo {
                     a: 44,

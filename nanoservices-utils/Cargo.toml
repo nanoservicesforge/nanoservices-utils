@@ -1,7 +1,7 @@
 
 [package]
 name = "nanoservices-utils"
-version = "0.1.1"
+version = "0.1.3"
 edition = "2021"
 authors = ["Maxwell Flitton", "Caroline Morton"]
 description = "A collection of utilities for nanoservices"
@@ -43,4 +43,3 @@ full = [
     "wasm-messaging", 
     "jwt"
 ]
-default = ["full"]

@@ -1,29 +1,38 @@
-#[macro_export]
-macro_rules! create_tcp_contract_client {
-    // TODO => need to create another enum from the existing enum
-    ($enum_name:ident) => {
-        impl $enum_name {
+//! Defines the TCP client for sending data contracts over the network.
+use crate::errors::{NanoServiceError, NanoServiceErrorStatus};
+use serde::{de::DeserializeOwned, Serialize};
+use tokio::net::TcpStream;
+use tokio_util::codec::Framed;
+use crate::networking::serialization::codec::BincodeCodec;
+use futures::{sink::SinkExt, StreamExt};
 
-            pub async fn send_over_tcp(self, address: &str) -> Result<Self, NanoServiceError> {
-                let stream = TcpStream::connect(address).await.map_err(|e| {
-                    NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-                })?;
-                let mut framed = Framed::new(stream, BincodeCodec::<Self>::new());
-                framed.send(self).await.map_err(|e| {
-                    NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-                })?;
-                let response = match framed.next().await {
-                    Some(response) => response,
-                    None => return Err(NanoServiceError::new("No response from server.".to_string(), NanoServiceErrorStatus::BadRequest))
-                };
-                Ok(response.map_err(|e| {
-                    NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-                })?)
-            }
 
-        }
-        
+/// Sends a data contract over TCP to the specified address.
+/// 
+/// # Arguments
+/// * `contract` - The contract to send.
+/// * `address` - The address to send the contract to.
+/// 
+/// # Returns
+/// * `Result<T, NanoServiceError>` - The response from the server which is either the contract or an Error.
+pub async fn send_data_contract_over_tcp<T>(contract: T, address: &str) -> Result<T, NanoServiceError> 
+where 
+    T: Serialize + DeserializeOwned,
+{
+    let stream = TcpStream::connect(address).await.map_err(|e| {
+        NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+    })?;
+    let mut framed = Framed::new(stream, BincodeCodec::<T>::new());
+    framed.send(contract).await.map_err(|e| {
+        NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+    })?;
+    let response = match framed.next().await {
+        Some(response) => response,
+        None => return Err(NanoServiceError::new("No response from server.".to_string(), NanoServiceErrorStatus::BadRequest))
     };
+    Ok(response.map_err(|e| {
+        NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+    })?)
 }
 
 
@@ -109,21 +118,12 @@ mod tests {
         }
     }
 
-
-    use crate::create_tcp_contract_client;
-    use tokio::net::TcpStream;
     use crate::errors::{NanoServiceError, NanoServiceErrorStatus};
     use kernel::{ContractHandler, ContractOne, ContractThree, ContractTwo};
-    use tokio_util::codec::Framed;
-    use crate::networking::serialization::codec::BincodeCodec;
-    use futures::{sink::SinkExt, StreamExt};
     use server::tcp_server;
+    use crate::networking::tcp::client::send_data_contract_over_tcp;
 
     use tokio::runtime::Builder;
-
-    create_tcp_contract_client!(
-        ContractHandler
-    );
 
     #[test]
     fn test_send_over_tcp() {
@@ -138,15 +138,15 @@ mod tests {
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
             let contract = ContractHandler::ContractOne(ContractOne);
-            let response = contract.send_over_tcp(address).await.unwrap();
+            let response = send_data_contract_over_tcp(contract, address).await.unwrap();
             assert_eq!(response.ContractOne().unwrap(), ContractOne);
 
             let contract_two = ContractHandler::ContractTwo(ContractTwo);
-            let response_two = contract_two.send_over_tcp(address).await.unwrap();
+            let response_two = send_data_contract_over_tcp(contract_two, address).await.unwrap();
             assert_eq!(response_two.ContractTwo().unwrap(), ContractTwo);
 
-            let contract_three = ContractHandler::ContractThree(ContractThree);
-            let response_three = contract_three.send_over_tcp(address).await.unwrap();
+            let contract_three: ContractHandler = ContractHandler::ContractThree(ContractThree);
+            let response_three = send_data_contract_over_tcp(contract_three, address).await.unwrap();
             assert_eq!(response_three.NanoServiceError().unwrap(), NanoServiceError::new(
                 "Received unknown contract type.".to_string(),
                 NanoServiceErrorStatus::ContractNotSupported
