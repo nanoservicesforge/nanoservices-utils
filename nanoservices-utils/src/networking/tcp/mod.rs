@@ -1,3 +1,3 @@
 pub mod client;
 pub mod routing;
-pub mod wasm_proxy;
+// pub mod wasm_proxy;

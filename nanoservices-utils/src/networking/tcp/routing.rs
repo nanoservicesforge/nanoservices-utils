@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! register_contract_routes {
     ($handler_enum:ident, $fn_name:ident, $( $contract:ident => $handler_fn:path ),*) => {
-        async fn $fn_name(received_msg: $handler_enum) -> Result<$handler_enum, NanoServiceError> {
+        pub async fn $fn_name(received_msg: $handler_enum) -> Result<$handler_enum, NanoServiceError> {
             match received_msg {
                 msg => match msg {
                     $(

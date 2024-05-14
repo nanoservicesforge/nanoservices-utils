@@ -3,7 +3,8 @@
 //! # Example
 //! 
 //! ```rust
-//! use crate::errors::{NanoServiceError, NanoServiceErrorStatus};
+//! use nanoservices_utils::errors::{NanoServiceError, NanoServiceErrorStatus};
+//! use nanoservices_utils::create_contract_handler;
 //! use serde::{Serialize, Deserialize};
 //! 
 //! #[derive(Debug, PartialEq, Serialize, Deserialize)]
