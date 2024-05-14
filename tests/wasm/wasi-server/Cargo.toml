@@ -1,0 +1,16 @@
+[package]
+name = "wasi-server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nanoservices-utils = { path = "../../../nanoservices-utils", features = ["wasm-messaging"]}
+serde = { version = "1.0.197", features = ["derive"] }
+bincode = "1.3.3"
+kernel = { path = "../kernel" }
+paste = "1.0.14"
+
+[lib]
+crate-type = ["cdylib"]
