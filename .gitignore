@@ -15,3 +15,5 @@ Cargo.lock
 
 .idea
 .DS_Store
+*.wat
+*.wasm
