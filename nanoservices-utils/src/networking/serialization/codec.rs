@@ -119,6 +119,7 @@ mod tests {
         };
         // send data to the server
         tokio_runtime.block_on(async {
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
             let stream = tokio::net::TcpStream::connect(&addr).await.unwrap();
             let mut framed = Framed::new(stream, BincodeCodec::<TestStruct>::new());
             framed.send(data).await.unwrap();

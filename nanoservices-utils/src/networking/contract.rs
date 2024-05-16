@@ -132,6 +132,103 @@ macro_rules! create_contract_handler {
     }
 }
 
+// TODO => look into breaking this out and having the more generic code for both macros in a seperate macro
+//         to reduce code duplication
+#[macro_export]
+macro_rules! create_bitcode_contract_handler {
+    ($enum_name:ident, $( $variant:ident ),*) => {
+        #[derive(Debug, PartialEq, Encode, Decode)]
+        pub enum $enum_name {
+            $( $variant($variant), )+
+            NanoServiceError(NanoServiceError)
+        }
+
+        impl $enum_name {
+            $(
+                #[allow(non_snake_case)]
+                pub fn $variant(self) -> Result<$variant, NanoServiceError> {
+                    match self {
+                        $enum_name::$variant(inner) => Ok(inner),
+                        $enum_name::NanoServiceError(inner) => Err(inner),
+                        _ => Err(NanoServiceError::new(
+                                format!("Expected variant: {}", stringify!($variant)),
+                                NanoServiceErrorStatus::BadRequest
+                            )
+                        ),
+                    }
+                }
+            )+
+
+            #[allow(non_snake_case)]
+            pub fn NanoServiceError(self) -> Result<NanoServiceError, NanoServiceError> {
+                match self {
+                    $enum_name::NanoServiceError(inner) => Ok(inner),
+                    _ => Err(NanoServiceError::new(
+                            "Expected variant: NanoServiceError".to_string(),
+                            NanoServiceErrorStatus::BadRequest
+                        )
+                    ),
+                }
+            }
+
+            pub fn to_string_ref(&self) -> String {
+                match self {
+                    $(
+                        $enum_name::$variant(_) => format!("{}_contract", stringify!($variant).to_lowercase()),
+                    )+
+                    $enum_name::NanoServiceError(_) => "nanoService_error".to_string(),
+                }
+            }
+
+            pub fn from_contract_bytes(bytes: &[u8], string_ref: String) -> Result<$enum_name, NanoServiceError> {
+                $(
+                    if string_ref == format!("{}_contract", stringify!($variant).to_lowercase()) {
+                        if let Ok(contract) = bincode::deserialize::<$variant>(bytes) {
+                            return Ok($enum_name::$variant(contract));
+                        }
+                    }
+                )+
+                return Err(NanoServiceError::new(
+                    "Failed to deserialize contract".to_string(),
+                    NanoServiceErrorStatus::BadRequest
+                ))
+            }
+
+            pub fn to_contract_bytes(&self) -> Result<Vec<u8>, NanoServiceError> {
+                match self {
+                    $(
+                        $enum_name::$variant(contract) => {
+                            if let Ok(bytes) = bincode::serialize(contract) {
+                                return Ok(bytes)
+                            }
+                        }
+                    )+
+                    $enum_name::NanoServiceError(error) => {
+                        if let Ok(bytes) = bincode::serialize(error) {
+                            return Ok(bytes)
+                        }
+                    }
+                }
+                return Err(NanoServiceError::new(
+                    "Failed to serialize contract".to_string(),
+                    NanoServiceErrorStatus::BadRequest
+                ))
+            }
+
+            pub fn internal_index(&self) -> i32 {
+                let mut index = 0;
+                $(
+                    index += 1;
+                    if let $enum_name::$variant(_) = self {
+                        return index
+                    }
+                )+
+                return 0
+            }
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
