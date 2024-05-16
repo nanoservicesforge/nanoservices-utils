@@ -206,9 +206,10 @@ mod tests {
     use super::*;
 
     mod kernel {
-        use crate::errors::NanoServiceError;
+        use crate::errors::{NanoServiceError, NanoServiceErrorStatus};
         use serde::{Serialize, Deserialize};
         use bitcode::{Encode, Decode};
+        use crate::create_bitcode_contract_handler;
 
         #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Encode, Decode)]
         pub struct ContractOne{
@@ -222,22 +223,12 @@ mod tests {
         #[derive(Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
         pub struct ContractThree;
 
-        // For `bitcode` to work you will have to manually create the enum
-        // as you will have to manually derive the `Encode` and `Decode` traits
-        #[derive(Debug, PartialEq, Serialize, Deserialize, Encode, Decode)]
-        pub enum ContractHandler {
-            ContractOne(ContractOne),
-            ContractTwo(ContractTwo),
-            ContractThree(ContractThree),
-            NanoServiceError(NanoServiceError),
-        }
-
-        // create_contract_handler!(
-        //     ContractHandler, 
-        //     ContractOne, 
-        //     ContractTwo, 
-        //     ContractThree
-        // );
+        create_bitcode_contract_handler!(
+            ContractHandler, 
+            ContractOne, 
+            ContractTwo, 
+            ContractThree
+        );
     }
 
     mod server {
