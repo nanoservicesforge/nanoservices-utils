@@ -5,4 +5,4 @@ cd $SCRIPTPATH
 cd ..
 cd nanoservices-utils
 
-cargo test --lib --features full -- --test-threads=1
+cargo test --lib --features full -- --test-threads=1 --nocapture

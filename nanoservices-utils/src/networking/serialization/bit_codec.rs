@@ -1,3 +1,6 @@
+//! Bitcode codec for tokio. Right now it cannot really be used as `Encode` and `Decode` traits do not play well
+//! with tokio framing. If you want to send a message using `bitcode` for serialization you can do this using the
+//! `BitcodeContractWrapper` struct in the `wrappers` module.
 use tokio_util::codec::{Decoder, Encoder};
 use bytes::{BufMut, BytesMut};
 use std::{io, marker::PhantomData};

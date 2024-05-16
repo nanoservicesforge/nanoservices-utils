@@ -2,6 +2,7 @@
 //! if the `ResponseError` trait is implemented for the specific web-framework being used. The `NanoServiceErrorStatus`
 //! enum is used to define the status of the error.
 use serde::{Deserialize, Serialize};
+use bitcode::{Encode, Decode};
 use thiserror::Error;
 use std::fmt;
 use revision::revisioned;
@@ -10,7 +11,7 @@ use revision::revisioned;
 use actix_web::{HttpResponse, error::ResponseError, http::StatusCode};
 
 
-#[derive(Error, Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Error, Debug, Serialize, Deserialize, PartialEq, Clone, Encode, Decode)]
 #[revisioned(revision = 1)]
 pub enum NanoServiceErrorStatus {
     #[error("Requested resource was not found")]
@@ -35,7 +36,7 @@ pub enum NanoServiceErrorStatus {
 /// # Fields
 /// * `message` - The message of the error.
 /// * `status` - The status of the error.
-#[derive(Serialize, Deserialize, Debug, Error, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, Error, PartialEq, Clone, Encode, Decode)]
 #[revisioned(revision = 1)]
 pub struct NanoServiceError {
     pub message: String,
