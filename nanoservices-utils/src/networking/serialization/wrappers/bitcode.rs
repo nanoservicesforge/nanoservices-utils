@@ -11,21 +11,15 @@ use bitcode::{Encode, DecodeOwned};
 /// 
 /// # Notes
 /// - `bitcode` favours speed and compact size over stability, always test every contract before using it in production.
-/// - `pre_header_bytes` field is needed because `bitcode` serialization of a `u32` value can vary from 2 bytes to 5 bytes
-///    depending on the size of the integer, therefore, the length of the header bytes is needed to extract the header bytes.
-/// 
+///
 /// # Fields
-/// * `pre_header_bytes` - The bytes that represent the length of the header bytes.
 /// * `header_bytes` - The bytes that represent the length of the contract bytes.
 /// * `contract_bytes` - The bytes that represent the contract.
-/// * `pre_header` - The length of the header bytes.
 /// * `header` - The length of the contract bytes (in byte form).
 /// * `contract` - The contract.
 pub struct BitcodeContractWrapper<T: Encode + DecodeOwned> {
-    pre_header_bytes: Option<[u8; 1]>,
-    header_bytes: Option<Vec<u8>>,
+    header_bytes: Option<[u8; 4]>,
     contract_bytes: Option<Vec<u8>>,
-    pub pre_header: Option<u8>,
     pub header: Option<u32>,
     pub contract: Option<T>,
 }
@@ -43,16 +37,11 @@ impl <T: Encode + DecodeOwned> BitcodeContractWrapper<T> {
     pub fn new(contract: T) -> Result<Self, NanoServiceError> {
         let contract_bytes: Vec<u8> = bitcode::encode(&contract);
         let length = contract_bytes.len() as u32;
-        let header_bytes: Vec<u8> = bitcode::encode(&length);
-        
-        let mut pre_header_bytes = [0; 1];
-        pre_header_bytes[0] = header_bytes.len() as u8;
+        let header_bytes = length.to_le_bytes();
 
         Ok(BitcodeContractWrapper {
-            pre_header_bytes: Some(pre_header_bytes),
             header_bytes: Some(header_bytes),
             contract_bytes: Some(contract_bytes),
-            pre_header: None,
             header: None,
             contract: None,
         })
@@ -66,10 +55,8 @@ impl <T: Encode + DecodeOwned> BitcodeContractWrapper<T> {
     /// * `BitcodeContractWrapper<T>` - The empty `BitcodeContractWrapper`.
     pub fn empty() -> Self {
         BitcodeContractWrapper {
-            pre_header_bytes: None,
             header_bytes: None,
             contract_bytes: None,
-            pre_header: None,
             header: None,
             contract: None,
         }
@@ -81,15 +68,11 @@ impl <T: Encode + DecodeOwned> BitcodeContractWrapper<T> {
     /// * `stream` - The stream to send the contract over.
     pub fn blocking_send<X: Write>(&self, stream: &mut X) -> Result<(), NanoServiceError> {
         // extract the bytes to be sent
-        let pre_header_bytes = self.pre_header_bytes.unwrap();
         let header_bytes = self.header_bytes.as_ref().unwrap();
         let contract_bytes = self.contract_bytes.as_ref().unwrap();
 
         // send the bytes to the stream
-        stream.write_all(&pre_header_bytes).map_err(|e| {
-            NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-        })?;
-        stream.write_all(&header_bytes).map_err(|e| {
+        stream.write_all(header_bytes).map_err(|e| {
             NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
         })?;
         stream.write_all(&contract_bytes).map_err(|e| {
@@ -101,35 +84,32 @@ impl <T: Encode + DecodeOwned> BitcodeContractWrapper<T> {
     /// Receives the contract over a blocking stream.
     /// 
     /// # Notes
-    /// `self.pre_header`, `self.header`, and `self.contract` will be populated with the values from the stream.
+    /// `self.header`, and `self.contract` will be populated with the values from the stream.
     /// 
     /// # Arguments
     /// * `stream` - The stream to receive the contract from.
     pub fn blocking_receive<X: Read>(&mut self, stream: &mut X) -> Result<(), NanoServiceError> {
-        // extract the preheader
-        let mut pre_header_buffer = [0; 1];
-        stream.read_exact(&mut pre_header_buffer).map_err(|e| {
-            NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-        })?;
-        let pre_header = bitcode::decode::<u8>(&pre_header_buffer).map_err(|e| {
-            NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-        })?;
-        self.pre_header = Some(pre_header);
-
         // extract the header to get the length of the contract
-        let mut header_buffer = vec![0; pre_header as usize];
+        let mut header_buffer = [0; 4];
         stream.read_exact(&mut header_buffer).map_err(|e| {
             NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
         })?;
-        let header = bitcode::decode::<u32>(&header_buffer).map_err(|e| {
-            NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-        })?;
+        let header = u32::from_le_bytes(header_buffer);
 
-        // extract the contract
-        let mut contract_buffer = vec![0; header as usize];
-        stream.read_exact(&mut contract_buffer).map_err(|e| {
-            NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-        })?;
+        // extract the contract, without allocating memory disproportionate to actual data
+        let mut contract_buffer = Vec::with_capacity(header.min(1024) as usize);
+        stream
+            .take(header as u64)
+            .read_to_end(&mut contract_buffer)
+            .map_err(|e| {
+                NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+            })?;
+        if contract_buffer.len() != header as usize {
+            return Err(NanoServiceError::new(
+                "Unexpected EOF".to_owned(),
+                NanoServiceErrorStatus::BadRequest,
+            ));
+        }
         self.header = Some(header);
         self.contract = Some(bitcode::decode::<T>(&contract_buffer).map_err(|e| {
             NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
@@ -143,14 +123,10 @@ impl <T: Encode + DecodeOwned> BitcodeContractWrapper<T> {
     /// * `stream` - The stream to send the contract over.
     pub async fn async_send<X: AsyncWriteExt + std::marker::Unpin>(&self, stream: &mut X) -> Result<(), NanoServiceError> {
         // extract the bytes to be sent
-        let pre_header_bytes = self.pre_header_bytes.unwrap();
         let header_bytes = self.header_bytes.as_ref().unwrap();
         let contract_bytes = self.contract_bytes.as_ref().unwrap();
 
-        stream.write_all(&pre_header_bytes).await.map_err(|e| {
-            NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-        })?;
-        stream.write_all(&header_bytes).await.map_err(|e| {
+        stream.write_all(header_bytes).await.map_err(|e| {
             NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
         })?;
         stream.write_all(&contract_bytes).await.map_err(|e| {
@@ -162,35 +138,33 @@ impl <T: Encode + DecodeOwned> BitcodeContractWrapper<T> {
     /// Receives the contract over an async stream.
     /// 
     /// # Notes
-    /// `self.pre_header`, `self.header`, and `self.contract` will be populated with the values from the stream.
+    /// `self.header`, and `self.contract` will be populated with the values from the stream.
     /// 
     /// # Arguments
     /// * `stream` - The stream to receive the contract from.
     pub async fn async_receive<X: AsyncReadExt + std::marker::Unpin>(&mut self, stream: &mut X) -> Result<(), NanoServiceError> {
-        // extract the preheader
-        let mut pre_header_buffer = [0; 1];
-        stream.read_exact(&mut pre_header_buffer).await.map_err(|e| {
-            NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-        })?;
-        let pre_header = bitcode::decode::<u8>(&pre_header_buffer).map_err(|e| {
-            NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-        })?;
-        self.pre_header = Some(pre_header);
-
         // extract the header to get the length of the contract
-        let mut header_buffer = vec![0; pre_header as usize];
+        let mut header_buffer = [0; 4];
         stream.read_exact(&mut header_buffer).await.map_err(|e| {
             NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
         })?;
-        let header = bitcode::decode::<u32>(&header_buffer).map_err(|e| {
-            NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-        })?;
+        let header = u32::from_le_bytes(header_buffer);
 
-        // extract the contract
-        let mut contract_buffer = vec![0; header as usize];
-        stream.read_exact(&mut contract_buffer).await.map_err(|e| {
-            NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
-        })?;
+        // extract the contract, without allocating memory disproportionate to actual data
+        let mut contract_buffer = Vec::with_capacity(header.min(1024) as usize);
+        stream
+            .take(header as u64)
+            .read_to_end(&mut contract_buffer)
+            .await
+            .map_err(|e| {
+                NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
+            })?;
+        if contract_buffer.len() != header as usize {
+            return Err(NanoServiceError::new(
+                "Unexpected EOF".to_owned(),
+                NanoServiceErrorStatus::BadRequest,
+            ));
+        }
         self.header = Some(header);
         self.contract = Some(bitcode::decode::<T>(&contract_buffer).map_err(|e| {
             NanoServiceError::new(e.to_string(), NanoServiceErrorStatus::BadRequest)
@@ -300,8 +274,9 @@ mod tests {
         // assert_eq!([16, 0, 0, 0], wrapper.header_bytes.unwrap());
 
         // test the deserialization and if the header is correct
-        let deserialized_contract = bitcode::decode::<ContractOne>(&wrapper.contract_bytes.as_ref().unwrap()).unwrap();
-        let deserialized_header = bitcode::decode::<u32>(&wrapper.header_bytes.unwrap()).unwrap();
+        let deserialized_contract =
+            bitcode::decode::<ContractOne>(&wrapper.contract_bytes.as_ref().unwrap()).unwrap();
+        let deserialized_header = u32::from_le_bytes(wrapper.header_bytes.unwrap());
         assert_eq!(contract, deserialized_contract);
         assert_eq!(deserialized_header, wrapper.contract_bytes.unwrap().len() as u32);
     }
