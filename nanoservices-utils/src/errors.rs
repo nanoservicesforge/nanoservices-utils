@@ -8,7 +8,35 @@ use std::fmt;
 use revision::revisioned;
 
 #[cfg(feature = "actix")]
-use actix_web::{HttpResponse, error::ResponseError, http::StatusCode};
+use actix_web::{
+    HttpResponse, 
+    error::ResponseError, 
+    http::StatusCode
+};
+
+#[cfg(feature = "rocket")]
+use rocket::{
+    http::Status,
+    response::{Responder, Response},
+    Request,
+};
+
+#[cfg(feature = "axum")]
+use axum::{
+    response::{IntoResponse, Response as AxumResponse},
+    http::StatusCode as AxumStatusCode,
+    Json
+};
+
+#[cfg(feature = "hyper")]
+use hyper::{
+    Response as HyperResponse, 
+    body::Bytes, 
+    StatusCode as HyperStatusCode,
+    header
+};
+#[cfg(feature = "hyper")]
+use http_body_util::Full;
 
 
 #[derive(Error, Debug, Serialize, Deserialize, PartialEq, Clone, Encode, Decode)]
@@ -103,6 +131,70 @@ impl ResponseError for NanoServiceError {
         HttpResponse::build(status_code).json(self.message.clone())
     }
 }
+
+
+#[cfg(feature = "rocket")]
+#[rocket::async_trait]
+impl<'r> Responder<'r, 'static> for NanoServiceError {
+    fn respond_to(self, _: &'r Request<'_>) -> rocket::response::Result<'static> {
+        let status = match self.status {
+            NanoServiceErrorStatus::NotFound => Status::NotFound,
+            NanoServiceErrorStatus::Forbidden => Status::Forbidden,
+            NanoServiceErrorStatus::Unknown => Status::InternalServerError,
+            NanoServiceErrorStatus::BadRequest => Status::BadRequest,
+            NanoServiceErrorStatus::Conflict => Status::Conflict,
+            NanoServiceErrorStatus::Unauthorized => Status::Unauthorized,
+            NanoServiceErrorStatus::ContractNotSupported => Status::NotImplemented
+        };
+
+        Response::build()
+            .status(status)
+            .sized_body(self.message.len(), std::io::Cursor::new(self.message))
+            .ok()
+    }
+}
+
+/// Implementing the IntoResponse trait for Axum.
+#[cfg(feature = "axum")]
+impl IntoResponse for NanoServiceError {
+    fn into_response(self) -> AxumResponse {
+        let status_code = match self.status {
+            NanoServiceErrorStatus::NotFound => AxumStatusCode::NOT_FOUND,
+            NanoServiceErrorStatus::Forbidden => AxumStatusCode::FORBIDDEN,
+            NanoServiceErrorStatus::Unknown => AxumStatusCode::INTERNAL_SERVER_ERROR,
+            NanoServiceErrorStatus::BadRequest => AxumStatusCode::BAD_REQUEST,
+            NanoServiceErrorStatus::Conflict => AxumStatusCode::CONFLICT,
+            NanoServiceErrorStatus::Unauthorized => AxumStatusCode::UNAUTHORIZED,
+            NanoServiceErrorStatus::ContractNotSupported => AxumStatusCode::NOT_IMPLEMENTED
+        };
+        
+        (status_code, Json(self.message)).into_response()
+    }
+}
+
+#[cfg(feature = "hyper")]
+impl NanoServiceError {
+    pub fn into_hyper_response(self) -> HyperResponse<Full<Bytes>> {
+        let status_code = match self.status {
+            NanoServiceErrorStatus::NotFound => HyperStatusCode::NOT_FOUND,
+            NanoServiceErrorStatus::Forbidden => HyperStatusCode::FORBIDDEN,
+            NanoServiceErrorStatus::Unknown => HyperStatusCode::INTERNAL_SERVER_ERROR,
+            NanoServiceErrorStatus::BadRequest => HyperStatusCode::BAD_REQUEST,
+            NanoServiceErrorStatus::Conflict => HyperStatusCode::CONFLICT,
+            NanoServiceErrorStatus::Unauthorized => HyperStatusCode::UNAUTHORIZED,
+            NanoServiceErrorStatus::ContractNotSupported => HyperStatusCode::NOT_IMPLEMENTED
+        };
+
+        let json_body = serde_json::to_string(&self.message).unwrap();
+
+        HyperResponse::builder()
+                .header(header::CONTENT_TYPE, "application/json")
+                .status(status_code)
+                .body(Full::new(Bytes::from(json_body)))
+                .unwrap()
+    }
+}
+
 
 
 #[macro_export]
