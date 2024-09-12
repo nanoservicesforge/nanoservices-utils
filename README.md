@@ -32,7 +32,18 @@ The `NanoServiceErrorStatus` will convert to a HTTP response code that correspon
 - rocket
 - hyper
 
-The error will be able to be converted to that framework's HTTP response. This means that your library can return `NanoServiceError` structs for errors and these errors will be able to convert into HTTP responses for those webframeworks. To see how this works, lets look at the following example where we have a function that will not allow a number more than 10 with the following code:
+The error will be able to be converted to that framework's HTTP response. This means that your library can return `NanoServiceError` structs for errors and these errors will be able to convert into HTTP responses for those webframeworks. 
+
+You can also map any expression returning a `Result` to return a `NanoServiceError` on error with the code below:
+
+```
+use nanoservices_utils::safe_eject;
+
+
+let some_outcome = safe_eject!(some_function());
+```
+
+To see how error handling works for web frameworks, lets look at the following example where we have a function that will not allow a number more than 10 with the following code:
 
 ```rust
 use nanoservice_utils::errors::{NanoServiceError, NanoServiceErrorStatus};
