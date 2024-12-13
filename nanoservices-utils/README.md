@@ -128,6 +128,50 @@ pub async fn some_api_endpoint(body: Json<Number>) -> Result<Json<i32>, (Status,
 }
 ```
 
+## Data Access Layer (DAL)
+
+If you enable the `dal` feature you currently get access to macros that massively reduce the amount of boilerplate code you need to write for your data access layer. The following is an example of how to use the DAL:
+
+```rust
+use nanoservices_utils::{define_dal_transactions, impl_transaction};
+
+// define the schemas that are going to be used for database transactions 
+// (traits for specigic databases and serialization still need to be implemented)
+struct NewUser {
+    name: String,
+}
+
+struct User {
+    id: i32,
+    name: String,
+}
+
+// Construct traits and map methods to function signatures
+define_dal_transactions!(
+    CreateUser => create(user: NewUser) -> i32,
+    GetUser => get(id: i32) -> User,
+    DeleteUser => delete(id: i32) -> bool
+);
+
+// create an empty struct that we can pass as a handle through a function
+struct PostgresHandle;
+
+// implement the `CreateUser` trait for the `PostgresHandle` struct using the `create_user_postgres` function
+#[impl_transaction(PostgresHandle, CreateUser, create)]
+async fn create_user_postgres(user: NewUser) -> Result<i32, NanoServiceError> {
+    Ok(1)
+}
+
+// test the function to see how it works
+let new_user = NewUser {
+    name: "John Doe".to_string(),
+};
+let outcome = PostgresHandle::create(new_user).await.unwrap();
+assert_eq!(outcome, 1);
+``` 
+
+I will work on database connections and migrations in later releases.
+
 ## Beta Utils
 
 I'm currently supporting the following utils:

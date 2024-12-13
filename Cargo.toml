@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
-members = [
+members = [ 
+    "crates/dal-tx-impl",
     "nanoservices-utils",
     "tests/wasm/client",
     "tests/wasm/kernel",
