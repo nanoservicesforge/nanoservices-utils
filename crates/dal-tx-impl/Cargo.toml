@@ -2,6 +2,9 @@
 name = "nan-serve-dal-tx-impl"
 version = "0.1.0"
 edition = "2021"
+authors = ["Maxwell Flitton"]
+description = "A collection of utilities for nanoservices"
+license = "MIT"
 
 [dependencies]
 quote = "1.0.37"
