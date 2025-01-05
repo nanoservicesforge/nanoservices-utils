@@ -21,3 +21,23 @@ pub mod data_access;
 #[cfg(feature = "dal")]
 #[allow(dead_code)]
 pub use nan_serve_dal_tx_impl::impl_transaction;
+
+#[cfg(feature = "tokio-pub-sub")]
+#[allow(dead_code)]
+pub mod tokio_pub_sub;
+
+#[cfg(feature = "tokio-pub-sub")]
+#[allow(dead_code)]
+pub use ctor;
+
+#[cfg(feature = "tokio-pub-sub")]
+#[allow(dead_code)]
+pub use bincode;
+
+#[cfg(feature = "tokio-pub-sub")]
+#[allow(dead_code)]
+pub use nan_serve_event_subscriber::subscribe_to_event;
+
+#[cfg(feature = "tokio-pub-sub")]
+#[allow(dead_code)]
+pub use nan_serve_publish_event::publish_event;

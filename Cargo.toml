@@ -2,8 +2,10 @@
 resolver = "2"
 members = [ 
     "crates/dal-tx-impl",
+    "crates/event-subscriber",
+    "crates/publish-event",
     "nanoservices-utils",
     "tests/wasm/client",
     "tests/wasm/kernel",
-    "tests/wasm/wasi-server",
+    "tests/wasm/wasi-server"
 ]
