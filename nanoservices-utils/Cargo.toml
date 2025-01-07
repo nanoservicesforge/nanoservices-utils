@@ -44,6 +44,10 @@ nan-serve-publish-event = { version = "0.1.0", optional = true }
 nan-serve-event-subscriber = { version = "0.1.0", optional = true }
 # bincode is also optional for the event adapter
 
+# optional dependencies for code generation
+schemars = { version = "0.8", optional = true }
+# serde_json is also optional for the code generation
+
 [dev-dependencies]
 tokio = { version = "1.37.0", features = ["full"] }
 
@@ -60,6 +64,7 @@ jwt = ["dep:jsonwebtoken"]
 dal = ["dep:nan-serve-dal-tx-impl"]
 dal-postgres = ["dal", "dep:sqlx"]
 tokio-pub-sub = ["dep:ctor", "dep:bincode", "dep:nan-serve-publish-event", "dep:nan-serve-event-subscriber"]
+code-gen = ["dep:schemars", "dep:serde_json"]
 
 full = [
     "hyper",
@@ -71,5 +76,6 @@ full = [
     "wasm-messaging", 
     "jwt",
     "dal",
-    "tokio-pub-sub"
+    "tokio-pub-sub",
+    "code-gen"
 ]

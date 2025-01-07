@@ -41,3 +41,11 @@ pub use nan_serve_event_subscriber::subscribe_to_event;
 #[cfg(feature = "tokio-pub-sub")]
 #[allow(dead_code)]
 pub use nan_serve_publish_event::publish_event;
+
+#[cfg(feature = "code-gen")]
+#[allow(dead_code)]
+pub mod code_gen;
+
+#[cfg(feature = "code-gen")]
+#[allow(dead_code)]
+pub use schemars;

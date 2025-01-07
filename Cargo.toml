@@ -1,9 +1,11 @@
 [workspace]
 resolver = "2"
 members = [ 
+    "crates/api-code-gen", 
     "crates/dal-tx-impl",
     "crates/event-subscriber",
-    "crates/publish-event",
+    "crates/publish-event", 
+    "crates/webschema",
     "nanoservices-utils",
     "tests/wasm/client",
     "tests/wasm/kernel",
