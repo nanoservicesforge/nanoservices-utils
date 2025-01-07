@@ -11,6 +11,7 @@ use proc_macro2::TokenTree::Punct;
 use proc_macro2::TokenTree;
 use syn::{ItemStruct, Fields, Type, DeriveInput};
 use std::collections::HashMap;
+mod typescript_gen;
 
 
 fn is_http_method_allowed(method: &str) -> bool {
@@ -52,6 +53,10 @@ pub fn code_gen_api_endpoint(attr: TokenStream, item: TokenStream) -> TokenStrea
     let mut uri: Option<String> = None;
     let mut method: Option<String> = None;
     let mut framework: Option<String> = None;
+    let mut input_schema_path: Option<String> = None;
+    let mut output_schema_path: Option<String> = None;
+    let mut output_typescript_path: Option<String> = None;
+    let mut expected_response_code: Option<u16> = None;
     for param in buffer {
 
         if param.len() < 3 {
@@ -93,18 +98,23 @@ pub fn code_gen_api_endpoint(attr: TokenStream, item: TokenStream) -> TokenStrea
                         framework = Some(framework_str);
                     },
                     "additional_headers" => {
+                        // for i in param[2] {
+                        //     eprint!("\n\nheader data {:?}\n\n", i);
+                        // }
                         eprint!("\n\nheader data {:?}\n\n", param[2]);
                     },
-                    "incoming_body" => {
-                        // let available_structs = parse_structs_in_file(&args_ref);
-                        // let schema = extract_schema_recursively(&ident, &available_structs);
-                        // eprintln!("Schema: {:?}", schema);
-                        eprint!("\n\nincoming body: {:?}\n\n", param[2]);
+                    "input_schema" => {
+                        input_schema_path = Some(param[2].to_string().replace("\"", ""));
                     },
-                    "outgoing_body" => {
-
+                    "output_schema" => {
+                        output_schema_path = Some(param[2].to_string().replace("\"", ""));
                     },
+                    "output_typescript_path" => {
+                        output_typescript_path = Some(param[2].to_string().replace("\"", ""));
+                    }
                     "expected_response_code" => {
+                        let response_code = param[2].to_string().replace("\"", "");
+                        expected_response_code = Some(response_code.parse::<u16>().expect("Invalid response code"));
 
                     },
                     _ => {
@@ -121,12 +131,21 @@ pub fn code_gen_api_endpoint(attr: TokenStream, item: TokenStream) -> TokenStrea
     eprint!("\n\nuri {:?}\n\n", uri);
     eprint!("\n\nmethod {:?}\n\n", method);
     eprint!("\n\nframework {:?}\n\n", framework);
+    eprint!("\n\ninput_schema_path {:?}\n\n", input_schema_path);
+    eprint!("\n\noutput_schema_path {:?}\n\n", output_schema_path);
+    eprint!("\n\noutput_typescript_path {:?}\n\n", output_typescript_path);
+
+    let uri = uri.expect("uri parameter is required");
+    let method = method.expect("method parameter is required");
+    let expected_response_code = expected_response_code.expect("expected_response_code parameter is required");
+    let additional_headers: Vec<String> = vec![];
 
     // Parse the input function
     let input_fn = parse_macro_input!(item as ItemFn);
 
     let mut body: Option<Ident> = None;
 
+    // Extract the inner type of the Json<> input parameter
     for input in input_fn.sig.inputs.iter() {
         if let syn::FnArg::Typed(arg) = input {
             if let syn::Type::Path(syn::TypePath { path, .. }) = &*arg.ty {
@@ -142,6 +161,18 @@ pub fn code_gen_api_endpoint(attr: TokenStream, item: TokenStream) -> TokenStrea
             }
         }
     }
+
+    let typescript_function = typescript_gen::generate_typescript(
+        input_fn.sig.ident.to_string().as_str(),
+        &uri,
+        &method,
+        vec![],
+        expected_response_code,
+        input_schema_path,
+        output_schema_path,
+    );
+
+    eprintln!("{}", typescript_function);
 
     // Generate expanded code
     let expanded = quote! {
