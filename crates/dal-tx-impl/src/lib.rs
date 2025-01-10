@@ -58,7 +58,7 @@ pub fn impl_transaction(attr: TokenStream, item: TokenStream) -> TokenStream {
     // Generate the expanded code
     let expanded = quote! {
         impl #trait_name for #struct_name {
-            fn #fn_name #fn_generics (#fn_inputs) -> impl Future<Output = #fn_output> + Send {
+            fn #fn_name #fn_generics (#fn_inputs) -> impl std::future::Future<Output = #fn_output> + Send {
                 async move #fn_body
             }
         }

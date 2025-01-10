@@ -1,6 +1,6 @@
 [package]
 name = "nan-serve-dal-tx-impl"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Maxwell Flitton"]
 description = "A collection of utilities for nanoservices"

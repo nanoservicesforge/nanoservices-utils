@@ -101,7 +101,25 @@ pub fn code_gen_api_endpoint(attr: TokenStream, item: TokenStream) -> TokenStrea
                         // for i in param[2] {
                         //     eprint!("\n\nheader data {:?}\n\n", i);
                         // }
-                        eprint!("\n\nheader data {:?}\n\n", param[2]);
+                        match &param[2] {
+                            proc_macro2::TokenTree::Group(unwraped_headers) => {
+                                for i in unwraped_headers.stream() {
+                                    match i {
+                                        TokenTree::Literal(literal) => {
+                                            eprintln!("main deal{:?}", literal);
+                                        },
+                                        _ => {
+                                            eprintln!("{:?}", i);
+                                        }
+                                    }
+                                    // eprintln!("{:?}", i);
+                                }
+                            },
+                            _ => {
+                                panic!("headers should be a vector of header strings");
+                            }
+                        }
+                        // eprint!("\n\nheader data {:?}\n\n", param[2]);
                     },
                     "input_schema" => {
                         input_schema_path = Some(param[2].to_string().replace("\"", ""));
