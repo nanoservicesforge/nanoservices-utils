@@ -7,7 +7,7 @@ macro_rules! define_dal_transactions {
     ) => {
         $(
             pub trait $trait {
-                fn $func_name $(< $($generic),* >)? ($($param : $ptype),*) -> impl std::future::Future<Output = Result<$rtype, nanoservice_utils::errors::NanoServiceError>> + Send;
+                fn $func_name $(< $($generic),* >)? ($($param : $ptype),*) -> impl std::future::Future<Output = Result<$rtype, nanoservices_utils::errors::NanoServiceError>> + Send;
             }
         )*
     };
